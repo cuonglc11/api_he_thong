@@ -50,6 +50,7 @@ public class AuthService {
         users.setRoles(roles);
         users.setIsActive(1);
         Users newUser = userRepository.save(users);
+
         if(newUser.getId() == null) {
             throw new IllegalArgumentException("False to user save");
         }

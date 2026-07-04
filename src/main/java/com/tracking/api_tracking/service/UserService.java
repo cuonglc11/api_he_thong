@@ -1,15 +1,22 @@
 package com.tracking.api_tracking.service;
 
+import com.tracking.api_tracking.Unit;
 import com.tracking.api_tracking.dto.AssignBrancheDto;
 import com.tracking.api_tracking.dto.ProvisionManagerDto;
 import com.tracking.api_tracking.models.*;
 import com.tracking.api_tracking.repository.*;
+import com.tracking.api_tracking.response.CustomUserDetails;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
@@ -27,6 +34,8 @@ public class UserService {
     private BranchesManagerRepository branchesManagerRepository;
     @Autowired
     private BranchRepository branchRepository;
+    @Autowired
+    private Unit unit;
     @Transactional
     public Employees addEmployees(ProvisionManagerDto dto)
     {
@@ -71,15 +80,21 @@ public class UserService {
         Branches branches = branchRepository.findById(dto.getBranchId()).orElseThrow(()
         -> new IllegalArgumentException("Branches not found")
         );
+        LocalDate today = LocalDate.now();
         Employees employees = employeeRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("emloyees not found"));
-        if(branchesManagerRepository.existsByBranchIdAndEndDateIsNull(dto.getBranchId()))
+        if(branchesManagerRepository.existsByBranches_IdAndEndDateGreaterThanEqual(dto.getBranchId() , today))
         {
             throw  new IllegalArgumentException("Operation failed: This branch already has a manager in charge.");
 
         }
+
+
         BranchManagers branchManagers = new BranchManagers();
         branchManagers.setBranches(branches);
+        branchManagers.setEndDate(LocalDate.of(2099, 12, 31));
         branchManagers.setEmployees(employees);
+        branchManagers.setUsers(unit.auth());
+
         BeanUtils.copyProperties(dto,branchManagers ,"branchId");
         BranchManagers newSave = branchesManagerRepository.save(branchManagers);
         if(newSave == null) {
@@ -106,5 +121,10 @@ public class UserService {
         if(userRepository.existsByUserName(dto.getUserName())) {
             throw new IllegalArgumentException("Error: The username already exists!");
         }
+    }
+    public Page<Employees> getList(String keyword , Pageable pageable)
+    {
+        String safeKeyword = (keyword == null) ? "" : keyword;
+        return  employeeRepository.searchByKeyword(safeKeyword , pageable);
     }
 }
